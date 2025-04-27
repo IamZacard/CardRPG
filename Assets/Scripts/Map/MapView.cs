@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEngine.EventSystems;
 
 public class MapView : MonoBehaviour
 {
@@ -25,8 +26,8 @@ public class MapView : MonoBehaviour
     [SerializeField] private float xSize = 10f;
     [SerializeField] private float yOffset = 1f;
     [Header("Line Settings")]
-    [SerializeField, Range(3, 10)] private int linePointsCount = 10;
-    [SerializeField] private float offsetFromNodes = 0.5f;
+    [SerializeField, Range(3, 20)] private int linePointsCount = 10;
+    [SerializeField] private float offsetFromNodes = 0.1f;
 
     public static Color LockedColor { get; } = Color.gray;
     public static Color VisitedColor { get; } = Color.green;
@@ -41,8 +42,25 @@ public class MapView : MonoBehaviour
 
     private void Awake()
     {
-        Instance = this;
-        cam = Camera.main;
+        if (Instance == null)
+        {
+            Instance = this;
+            if (transform.parent != null)
+            {
+                Debug.LogWarning("MapView is not a root GameObject. Moving to root to support DontDestroyOnLoad.");
+                transform.SetParent(null);
+            }
+            DontDestroyOnLoad(gameObject);
+            cam = Camera.main;
+            if (cam.GetComponent<Physics2DRaycaster>() == null)
+            {
+                cam.gameObject.AddComponent<Physics2DRaycaster>();
+            }
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
     }
 
     public MapNode GetNode(Vector2Int point)
@@ -113,6 +131,11 @@ public class MapView : MonoBehaviour
                 float nodeX = (orientation == MapOrientation.RightToLeft || orientation == MapOrientation.LeftToRight) ? xPos : xStart + j * nodeSpacing;
                 float nodeY = (orientation == MapOrientation.BottomToTop || orientation == MapOrientation.TopToBottom) ? yPos : xStart + j * nodeSpacing;
                 nodeObj.transform.localPosition = new Vector3(nodeX, nodeY, 0);
+                if (nodeObj.GetComponent<Collider2D>() == null)
+                {
+                    CircleCollider2D collider = nodeObj.AddComponent<CircleCollider2D>();
+                    collider.radius = 0.5f;
+                }
                 MapNode mapNode = nodeObj.GetComponent<MapNode>();
                 if (mapNode == null)
                 {
@@ -133,7 +156,12 @@ public class MapView : MonoBehaviour
             foreach (var outgoingPoint in mapNode.Node.outgoing)
             {
                 MapNode toNode = GetNode(outgoingPoint);
-                if (toNode == null || spawnedLines.Any(l => (l.FromNode == mapNode && l.ToNode == toNode) || (l.FromNode == toNode && l.ToNode == mapNode)))
+                if (toNode == null)
+                {
+                    Debug.LogWarning($"No node found for outgoing point {outgoingPoint} from {mapNode.Node.point}");
+                    continue;
+                }
+                if (spawnedLines.Any(l => (l.FromNode == mapNode && l.ToNode == toNode) || (l.FromNode == toNode && l.ToNode == mapNode)))
                     continue;
 
                 GameObject lineObj = Instantiate(linePrefab, mapParent.transform);
@@ -290,25 +318,24 @@ public class MapView : MonoBehaviour
         backgroundObject.transform.SetParent(mapParent.transform);
         float span = (layers.Count - 1) * layerSpacing;
 
-        // Position and size based on orientation
         Vector3 bgPosition;
         Vector2 bgSize;
         switch (orientation)
         {
             case MapOrientation.BottomToTop:
-                bgPosition = new Vector3(0, span / 2f, -5); // Center vertically, Z=-5
+                bgPosition = new Vector3(0, span / 2f, -5);
                 bgSize = new Vector2(maxNodeWidth + xSize, span + yOffset * 2f);
                 break;
             case MapOrientation.TopToBottom:
-                bgPosition = new Vector3(0, -span / 2f, -5); // Center vertically, Z=-5
+                bgPosition = new Vector3(0, -span / 2f, -5);
                 bgSize = new Vector2(maxNodeWidth + xSize, span + yOffset * 2f);
                 break;
             case MapOrientation.RightToLeft:
-                bgPosition = new Vector3(-span / 2f, 0, -5); // Center horizontally, Z=-5
+                bgPosition = new Vector3(-span / 2f, 0, -5);
                 bgSize = new Vector2(span + yOffset * 2f, maxNodeWidth + xSize);
                 break;
             case MapOrientation.LeftToRight:
-                bgPosition = new Vector3(span / 2f, 0, -5); // Center horizontally, Z=-5
+                bgPosition = new Vector3(span / 2f, 0, -5);
                 bgSize = new Vector2(span + yOffset * 2f, maxNodeWidth + xSize);
                 break;
             default:
@@ -324,7 +351,7 @@ public class MapView : MonoBehaviour
         sr.drawMode = SpriteDrawMode.Sliced;
         sr.sprite = background;
         sr.size = bgSize;
-        sr.sortingOrder = -5; // Ensure background is behind everything else
+        sr.sortingOrder = -5;
     }
 
     private void SetOrientation()
@@ -336,7 +363,6 @@ public class MapView : MonoBehaviour
         MapNode bossNode = spawnedNodes.FirstOrDefault(node => node.Node.nodeType == NodeType.Boss);
         float offset = orientationOffset;
 
-        // Position firstParent in front of camera
         firstParent.transform.position = new Vector3(cam.transform.position.x, cam.transform.position.y, 0f);
 
         switch (orientation)
@@ -344,8 +370,8 @@ public class MapView : MonoBehaviour
             case MapOrientation.BottomToTop:
                 if (scrollNonUi != null)
                 {
-                    scrollNonUi.yConstraints.max = 0; // Top of map (start)
-                    scrollNonUi.yConstraints.min = -(span + 2f * offset); // Bottom of map (boss)
+                    scrollNonUi.yConstraints.max = 0;
+                    scrollNonUi.yConstraints.min = -(span + 2f * offset);
                 }
                 firstParent.transform.localPosition += new Vector3(0, offset, 0);
                 mapParent.transform.localRotation = Quaternion.identity;
@@ -353,31 +379,31 @@ public class MapView : MonoBehaviour
             case MapOrientation.TopToBottom:
                 if (scrollNonUi != null)
                 {
-                    scrollNonUi.yConstraints.min = 0; // Bottom of map (start)
-                    scrollNonUi.yConstraints.max = span + 2f * offset; // Top of map (boss)
+                    scrollNonUi.yConstraints.min = 0;
+                    scrollNonUi.yConstraints.max = span + 2f * offset;
                 }
                 firstParent.transform.localPosition += new Vector3(0, -offset, 0);
-                mapParent.transform.localRotation = Quaternion.Euler(0, 0, 180); // Match sample
+                mapParent.transform.localRotation = Quaternion.Euler(0, 0, 180);
                 break;
             case MapOrientation.RightToLeft:
                 offset *= cam.aspect;
                 if (scrollNonUi != null)
                 {
-                    scrollNonUi.xConstraints.max = span + 2f * offset; // Left of map (boss)
-                    scrollNonUi.xConstraints.min = 0; // Right of map (start)
+                    scrollNonUi.xConstraints.max = span + 2f * offset;
+                    scrollNonUi.xConstraints.min = 0;
                 }
                 firstParent.transform.localPosition += new Vector3(-offset, -(bossNode?.transform.localPosition.y ?? 0), 0);
-                mapParent.transform.localRotation = Quaternion.Euler(0, 0, 90); // Match sample
+                mapParent.transform.localRotation = Quaternion.Euler(0, 0, 90);
                 break;
             case MapOrientation.LeftToRight:
                 offset *= cam.aspect;
                 if (scrollNonUi != null)
                 {
-                    scrollNonUi.xConstraints.max = 0; // Right of map (start)
-                    scrollNonUi.xConstraints.min = -(span + 2f * offset); // Left of map (boss)
+                    scrollNonUi.xConstraints.max = 0;
+                    scrollNonUi.xConstraints.min = -(span + 2f * offset);
                 }
                 firstParent.transform.localPosition += new Vector3(offset, -(bossNode?.transform.localPosition.y ?? 0), 0);
-                mapParent.transform.localRotation = Quaternion.Euler(0, 0, -90); // Match sample
+                mapParent.transform.localRotation = Quaternion.Euler(0, 0, -90);
                 break;
         }
 

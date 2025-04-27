@@ -1,6 +1,5 @@
 using UnityEngine;
 using System.IO;
-using System.Runtime.Serialization.Formatters.Binary;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -23,14 +22,13 @@ public struct SerializableVector2Int
 [System.Serializable]
 public class GameState
 {
-    public int version = 1; // Added for versioning
+    public int version = 1;
     public int playerHealth;
     public List<string> deckCardNames;
-    public int currentNodeIndex;
     public int playerGold;
     public List<(string character, StatusEffect effect, int value)> statusEffects;
     public MapSaveData mapData;
-    public List<SerializableVector2Int> playerPath; // Updated
+    public List<SerializableVector2Int> playerPath;
 }
 
 [System.Serializable]
@@ -38,8 +36,8 @@ public class MapSaveData
 {
     public List<NodeSaveData> nodes;
     public List<ConnectionSaveData> connections;
-    public int currentNodeIndex;
-    public List<NodeStateSaveData> nodeStates; // Updated
+    public SerializableVector2Int currentNodePoint;
+    public List<NodeStateSaveData> nodeStates;
 }
 
 [System.Serializable]
@@ -47,21 +45,21 @@ public class NodeSaveData
 {
     public NodeType type;
     public string blueprintName;
-    public SerializableVector2Int point; // Updated
+    public SerializableVector2Int point;
     public Vector2 position;
 }
 
 [System.Serializable]
 public class ConnectionSaveData
 {
-    public SerializableVector2Int fromPoint; // Updated
-    public SerializableVector2Int toPoint; // Updated
+    public SerializableVector2Int fromPoint;
+    public SerializableVector2Int toPoint;
 }
 
 [System.Serializable]
 public class NodeStateSaveData
 {
-    public SerializableVector2Int point; // Updated
+    public SerializableVector2Int point;
     public NodeStates state;
 }
 
@@ -101,7 +99,6 @@ public class SaveLoadManager : MonoBehaviour
             playerGold = FindObjectOfType<ShopManager>()?.GetPlayerGold() ?? 50,
             statusEffects = new List<(string, StatusEffect, int)>(),
             mapData = SaveMapState(),
-            currentNodeIndex = GetNodeIndex(MapManager.Instance?.CurrentNode),
             playerPath = MapPlayerTracker.Instance.PlayerPath
                 .Select(SerializableVector2Int.FromVector2Int)
                 .ToList()
@@ -211,7 +208,7 @@ public class SaveLoadManager : MonoBehaviour
         }
         catch (System.Exception ex)
         {
-            Debug.LogError($"Failed to load autosave: {ex.Message}");
+            Debug.LogError($"Failed to load autosave: {ex.Message}\nStackTrace: {ex.StackTrace}");
             MapManager.Instance?.GenerateMap();
         }
     }
@@ -224,7 +221,9 @@ public class SaveLoadManager : MonoBehaviour
         {
             nodes = new List<NodeSaveData>(),
             connections = new List<ConnectionSaveData>(),
-            currentNodeIndex = GetNodeIndex(MapManager.Instance.CurrentNode),
+            currentNodePoint = MapManager.Instance.CurrentNode != null
+                ? SerializableVector2Int.FromVector2Int(MapManager.Instance.CurrentNode.point)
+                : new SerializableVector2Int(-1, -1),
             nodeStates = new List<NodeStateSaveData>()
         };
 
@@ -264,6 +263,7 @@ public class SaveLoadManager : MonoBehaviour
             });
         }
 
+        Debug.Log($"Saved map: {mapData.nodes.Count} nodes, {mapData.connections.Count} connections, {mapData.nodeStates.Count} states");
         return mapData;
     }
 
@@ -310,12 +310,35 @@ public class SaveLoadManager : MonoBehaviour
             MapManager.Instance.nodeStates[state.point.ToVector2Int()] = state.state;
         }
 
-        var allNodes = MapManager.Instance.Layers.SelectMany(l => l.Nodes).ToList();
-        if (mapData.currentNodeIndex >= 0 && mapData.currentNodeIndex < allNodes.Count)
+        Node currentNode = MapManager.Instance.Layers
+            .SelectMany(l => l.Nodes)
+            .FirstOrDefault(n => n.point.Equals(mapData.currentNodePoint.ToVector2Int()));
+        if (currentNode != null)
         {
-            MapManager.Instance.SetCurrentNode(allNodes[mapData.currentNodeIndex]);
+            MapManager.Instance.SetCurrentNode(currentNode);
         }
-        MapManager.Instance.GenerateMapVisual();
+        else
+        {
+            Debug.LogWarning($"Current node at point {mapData.currentNodePoint.x},{mapData.currentNodePoint.y} not found!");
+        }
+
+        // Update visuals if MapView has nodes, otherwise generate new visuals
+        if (MapView.Instance != null)
+        {
+            // Check if MapView has any nodes (indicating existing visuals)
+            if (MapView.Instance.GetNode(Vector2Int.zero) != null || mapData.nodes.Any(n => MapView.Instance.GetNode(n.point.ToVector2Int()) != null))
+            {
+                MapView.Instance.UpdateVisuals(MapManager.Instance.nodeStates);
+                MapView.Instance.SetAttainableNodes();
+                MapView.Instance.SetLineColors();
+                Debug.Log("Updated existing map visuals");
+            }
+            else
+            {
+                MapManager.Instance.GenerateMapVisual();
+                Debug.Log("Generated new map visuals");
+            }
+        }
     }
 
     private int GetNodeIndex(Node node)

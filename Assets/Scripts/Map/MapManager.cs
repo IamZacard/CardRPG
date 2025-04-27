@@ -36,13 +36,22 @@ public class MapManager : MonoBehaviour
 
     void Start()
     {
-        if (!System.IO.File.Exists(Application.persistentDataPath + "/autosave.dat"))
+        // Only load or generate map if not already initialized
+        if (layers.Count == 0)
         {
-            GenerateMap();
-        }
-        else
-        {
-            SaveLoadManager.Instance.LoadAutoSave();
+            if (!System.IO.File.Exists(Application.persistentDataPath + "/autosave.dat"))
+            {
+                GenerateMap();
+            }
+            else
+            {
+                SaveLoadManager.Instance.LoadAutoSave();
+                if (view != null && layers.Count > 0)
+                {
+                    view.GenerateMapVisual(layers);
+                    view.UpdateVisuals(nodeStates);
+                }
+            }
         }
     }
 
@@ -114,8 +123,11 @@ public class MapManager : MonoBehaviour
 
     public void GenerateMapVisual()
     {
-        if (view != null)
+        if (view != null && layers.Count > 0)
+        {
             view.GenerateMapVisual(layers);
+            view.UpdateVisuals(nodeStates);
+        }
     }
 
     private void ConnectLayers()
