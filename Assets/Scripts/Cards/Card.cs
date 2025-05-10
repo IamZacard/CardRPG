@@ -1,46 +1,155 @@
 using UnityEngine;
+using System;
+using System.Collections.Generic;
 
-public enum CardType { Attack, Defense, Effect }
-public enum StatusEffect { None, Poison, Stun, Burn }
-
-[CreateAssetMenu(fileName = "New Card", menuName = "Card")]
-public class Card : ScriptableObject
+/// <summary>
+/// Represents a runtime instance of a card during combat
+/// </summary>
+public class Card
 {
-    public string cardName;
-    public int cost;
-    public CardType type;
-    public int damage;
-    public int block;
-    public StatusEffect statusEffect;
-    public int statusEffectValue;
-    public string effectDescription; // Optional for custom descriptions
+    // Unique identifier for this card instance
+    public readonly int instanceID;
 
-    public string GetFormattedDescription()
+    // Reference to the static data
+    public readonly CardData cardData;
+
+    // Dynamic card properties (can be modified during gameplay)
+    private int currentCost;
+    private string currentDescription;
+    private List<StatusEffect> temporaryEffects = new List<StatusEffect>();
+
+    // Events for when card properties change
+    public event Action<int> OnCostChanged;
+    public event Action<string> OnDescriptionChanged;
+    public event Action<Card> OnCardModified;
+
+    public Card(CardData data, int id)
     {
-        if (!string.IsNullOrEmpty(effectDescription))
-            return effectDescription; // Use custom description if provided
+        cardData = data;
+        instanceID = id;
 
-        string description = "";
-        switch (type)
+        // Initialize dynamic properties with base values
+        currentCost = data.baseCost;
+        currentDescription = data.description;
+    }
+
+    // Properties for accessing and modifying dynamic state
+    public int CurrentCost
+    {
+        get => currentCost;
+        set
         {
-            case CardType.Attack:
-                if (damage > 0)
-                    description = $"Deal {damage} damage";
-                break;
-            case CardType.Defense:
-                if (block > 0)
-                    description = $"Block {block} damage";
-                break;
-            case CardType.Effect:
-                if (statusEffect != StatusEffect.None)
-                    description = $"Apply {statusEffectValue} {statusEffect}";
-                break;
+            if (currentCost != value)
+            {
+                currentCost = value;
+                OnCostChanged?.Invoke(currentCost);
+                OnCardModified?.Invoke(this);
+            }
+        }
+    }
+
+    public string CurrentDescription
+    {
+        get => currentDescription;
+        set
+        {
+            if (currentDescription != value)
+            {
+                currentDescription = value;
+                OnDescriptionChanged?.Invoke(currentDescription);
+                OnCardModified?.Invoke(this);
+            }
+        }
+    }
+
+    // Reset modifications to return card to its base state
+    public void ResetModifications()
+    {
+        currentCost = cardData.baseCost;
+        currentDescription = cardData.description;
+        temporaryEffects.Clear();
+
+        // Notify listeners of changes
+        OnCostChanged?.Invoke(currentCost);
+        OnDescriptionChanged?.Invoke(currentDescription);
+        OnCardModified?.Invoke(this);
+    }
+
+    // Apply a temporary effect to the card
+    public void ApplyTemporaryEffect(StatusEffect effect)
+    {
+        temporaryEffects.Add(effect);
+
+        // Apply effect logic
+        if (effect.effectType == CardStatusEffectType.CostModifier)
+        {
+            CurrentCost += effect.value;
         }
 
-        // Append status effect if present (for Attack/Defense cards with effects)
-        if (statusEffect != StatusEffect.None && type != CardType.Effect)
-            description += $", apply {statusEffectValue} {statusEffect}";
-
-        return description;
+        OnCardModified?.Invoke(this);
     }
+
+    // Get all temporary effects currently applied to this card
+    public List<StatusEffect> GetTemporaryEffects()
+    {
+        return new List<StatusEffect>(temporaryEffects);
+    }
+
+    // Copy this card instance, creating a new one with same state
+    public Card CreateCopy()
+    {
+        Card copy = new Card(cardData, CardFactory.GetNextCardID());
+
+        // Copy dynamic state
+        copy.CurrentCost = currentCost;
+        copy.CurrentDescription = currentDescription;
+
+        foreach (var effect in temporaryEffects)
+        {
+            copy.ApplyTemporaryEffect(effect);
+        }
+
+        return copy;
+    }
+
+    // Check if card can be played with current energy
+    public bool CanPlayWithEnergy(int availableEnergy)
+    {
+        return currentCost <= availableEnergy;
+    }
+}
+
+/// <summary>
+/// Represents a temporary effect applied to a card
+/// </summary>
+[Serializable]
+public class StatusEffect
+{
+    public CardStatusEffectType effectType;
+    public int value;
+    public int durationTurns;
+    public string description;
+
+    public StatusEffect(CardStatusEffectType type, int effectValue, int duration = 1)
+    {
+        effectType = type;
+        value = effectValue;
+        durationTurns = duration;
+        description = $"{type} {value} for {duration} turn(s)";
+    }
+}
+
+/// <summary>
+/// Types of status effects that can be applied to cards
+/// </summary>
+public enum CardStatusEffectType
+{
+    CostModifier,
+    DamageModifier,
+    BlockModifier,
+    EffectDoubler,
+    RetainCard,
+    ExhaustCard,
+    EtherealCard,
+    Special
 }

@@ -1,93 +1,52 @@
-using System.Collections.Generic;
 using UnityEngine;
+using System.Collections.Generic;
 
 public class DeckManager : MonoBehaviour
 {
-    public static DeckManager Instance { get; private set; }
-    public List<Card> startingDeck;
-    public int handSize = 5;
-    private List<Card> deck;
-    public List<Card> Hand { get; private set; }
-    private List<Card> discardPile;
-    public HandUIManager handUIManager;
-    public TMPro.TMP_Text deckCountText;
+    [Header("Config")]
+    [SerializeField] private List<CardData> startingDeckData;
 
-    void Awake()
+    private Stack<Card> drawPile;
+    private List<Card> discardPile = new List<Card>();
+
+    public void InitializeDeck()
     {
-        if (Instance == null)
+        CardFactory.ResetCardIDCounter();
+
+        // Create instances of each CardData
+        var cards = CardFactory.CreateCards(startingDeckData);
+        ShuffleIntoDrawPile(cards);
+    }
+
+    private void ShuffleIntoDrawPile(IEnumerable<Card> cards)
+    {
+        var list = new List<Card>(cards);
+        // simple Fisher–Yates
+        for (int i = list.Count - 1; i > 0; i--)
         {
-            Instance = this;
-            DontDestroyOnLoad(gameObject);
+            int j = Random.Range(0, i + 1);
+            var tmp = list[i]; list[i] = list[j]; list[j] = tmp;
         }
-        else
+        drawPile = new Stack<Card>(list);
+    }
+
+    /// <summary> Draws one card. If draw pile is empty, reshuffle discard into draw. </summary>
+    public Card DrawCard()
+    {
+        if (drawPile.Count == 0 && discardPile.Count > 0)
         {
-            Destroy(gameObject);
-        }
-    }
-
-    void Start()
-    {
-        deck = new List<Card>(startingDeck);
-        Hand = new List<Card>();
-        discardPile = new List<Card>();
-        ShuffleDeck();
-        DrawInitialHand();
-        UpdateDeckCountUI();
-    }
-
-    void ShuffleDeck()
-    {
-        for (int i = 0; i < deck.Count; i++)
-        {
-            int randomIndex = Random.Range(i, deck.Count);
-            Card temp = deck[i];
-            deck[i] = deck[randomIndex];
-            deck[randomIndex] = temp;
-        }
-    }
-
-    public void DrawInitialHand()
-    {
-        for (int i = 0; i < handSize; i++)
-            DrawCard();
-    }
-
-    public void DrawCard()
-    {
-        if (deck.Count == 0)
-        {
-            deck = new List<Card>(discardPile);
+            ShuffleIntoDrawPile(discardPile);
             discardPile.Clear();
-            ShuffleDeck();
         }
-        if (deck.Count > 0)
-        {
-            Card drawnCard = deck[0];
-            deck.RemoveAt(0);
-            Hand.Add(drawnCard);
-            if (handUIManager != null)
-                handUIManager.UpdateHand(Hand);
-            UpdateDeckCountUI();
-        }
+
+        return drawPile.Count > 0 ? drawPile.Pop() : null;
     }
 
-    public void DiscardCard(Card card)
+    public void Discard(Card card)
     {
-        if (Hand.Contains(card))
-        {
-            Hand.Remove(card);
-            discardPile.Add(card);
-            if (handUIManager != null)
-                handUIManager.UpdateHand(Hand);
-            UpdateDeckCountUI();
-        }
+        discardPile.Add(card);
     }
 
-    void UpdateDeckCountUI()
-    {
-        if (deckCountText != null) // Null check
-            deckCountText.text = $"Deck: {deck.Count}";
-        else
-            Debug.LogWarning("DeckCountText is not assigned in DeckManager.");
-    }
+    public int DrawCount => drawPile.Count;
+    public int DiscardCount => discardPile.Count;
 }
