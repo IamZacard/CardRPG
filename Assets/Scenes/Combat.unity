@@ -580,6 +580,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1574580783}
   - component: {fileID: 1574580782}
+  - component: {fileID: 1574580784}
   m_Layer: 0
   m_Name: Manager
   m_TagString: Untagged
@@ -603,6 +604,13 @@ MonoBehaviour:
   playerSpawnPoint: {fileID: 173468740}
   playerData: {fileID: 11400000, guid: 0cc763d6ce6b7fd429ab83f00d4dc29b, type: 2}
   playerHUDPrefab: {fileID: 3276723963258676116, guid: 2ce63890f9a8b5c4782389c61907c1b0, type: 3}
+  enemyDataList:
+  - {fileID: 11400000, guid: c1ce8e0796197f2498248d92bff68d8c, type: 2}
+  - {fileID: 11400000, guid: c360491e7276ea74e834b72ece60c139, type: 2}
+  - {fileID: 11400000, guid: 0ec2284d0831a8c46b664034391b8519, type: 2}
+  enemySpawnPoint: {fileID: 1402123205}
+  enemyPrefab: {fileID: 5930936042045546079, guid: 6e8b4ff518ac02841b27e75fc567e3b0, type: 3}
+  enemyHUDPrefab: {fileID: 5948023954908072176, guid: 7b8ee71e3c77efc4e8d75f003bc057a3, type: 3}
   deckManager: {fileID: 1650517057}
   handManager: {fileID: 1501173638}
 --- !u!4 &1574580783
@@ -620,6 +628,18 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1574580784
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1574580781}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: aaa6bcc983b603946ac6ca15a3818b4c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1650517056
 GameObject:
   m_ObjectHideFlags: 0
@@ -651,6 +671,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   startingDeckData:
   - {fileID: 11400000, guid: 823fe4382298bd740bf01ccf691f7df5, type: 2}
+  - {fileID: 11400000, guid: 357c55184e40d194994565c203bb91e2, type: 2}
   - {fileID: 11400000, guid: 357c55184e40d194994565c203bb91e2, type: 2}
 --- !u!4 &1650517058
 Transform:

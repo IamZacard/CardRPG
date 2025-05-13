@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1b91c5400a915a44a9d878e4c98ed09a, type: 3}
+  m_Name: Demon
+  m_EditorClassIdentifier: 
+  enemyName: Demon
+  description: Strong enemy
+  artwork: {fileID: 21300000, guid: 838c6142f804e7749b5929a562679a0e, type: 3}
+  maxHealth: 25
+  baseBlock: 5
+  isElite: 0
+  isBoss: 0
+  goldReward: 25
+  experienceReward: 50
+  cardRewardCount: 0
+  possibleActions:
+  - actionName: Attack
+    damage: 6
+    block: 0
+    statusEffectAmount: 0
+    targetsAll: 0
+    selfEffect: 0
+    isTelegraphed: 1
+  - actionName: Block
+    damage: 0
+    block: 5
+    statusEffectAmount: 0
+    targetsAll: 0
+    selfEffect: 0
+    isTelegraphed: 1
+  aggressiveThreshold: 0.8
+  defensiveThreshold: 0.4
+  healThreshold: 0.3
+  bossPhases: []
